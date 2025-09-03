@@ -96,6 +96,9 @@ public:
     Converter();
     ~Converter();
 
+    bool read(std::vector<uint8_t>& buf) const;
+    bool write(std::vector<uint8_t> const& buf) const;
+
     bool getCounter(Counter counter, unsigned long& val) const;
     bool resetCounter(Counter counter) const;
 
@@ -105,10 +108,12 @@ public:
     bool setSpiMode(SpiMode mode) const;
     bool setSpiBaudrate(SpiBaudrate baudrate) const;
 
+    bool reset() const;
+
 private:
     std::unique_ptr<I2c> i2cBus_;
     std::unique_ptr<GpioIn> gpioBusy_;
-    std::unique_ptr<GpioOut> gpioMode_;
+    std::shared_ptr<GpioOut> gpioMode_;
     std::unique_ptr<GpioOut> gpioReset_;
 };
 

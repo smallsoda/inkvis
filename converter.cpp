@@ -37,6 +37,28 @@ extern "C"
 #define CMD_SPI_BAUDRATE 0x40
 
 
+class GpioSetter
+{
+public:
+    GpioSetter(std::shared_ptr<GpioOut> gpio, bool state)
+        : initState_(state), gpio_(gpio)
+    {
+        if (gpio_)
+            gpio_->set(initState_);
+    }
+
+    ~GpioSetter()
+    {
+        if (gpio_)
+            gpio_->set(!initState_);
+    }
+
+private:
+    bool initState_;
+    std::shared_ptr<GpioOut> gpio_;
+};
+
+
 Gpio::Gpio(std::string const &gpiochip, int line) : chip_(gpiochip), line_(line)
 {
     std::cout << __func__ << std::endl;
@@ -57,6 +79,13 @@ GpioIn::GpioIn(std::string const &gpiochip, int line) : Gpio(gpiochip, line)
 GpioOut::GpioOut(std::string const &gpiochip, int line) : Gpio(gpiochip, line)
 {
     std::cout << __func__ << std::endl;
+}
+
+bool GpioOut::set(int val) const
+{
+    std::cout << __func__ << std::endl;
+
+    return false;
 }
 
 
@@ -105,17 +134,19 @@ bool Converter::getCounter(Counter counter, unsigned long& val) const
 {
     std::cout << __func__ << std::endl;
 
+    GpioSetter mode_setter(gpioMode_, false);
     uint32_t regval;
     uint8_t reg;
     bool status;
 
     switch (counter)
     {
-    case Counter::RX: reg = CMD_RXC_GET; break;
-    case Counter::TX: reg = CMD_TXC_GET; break;
+        case Counter::RX: reg = CMD_RXC_GET; break;
+        case Counter::TX: reg = CMD_TXC_GET; break;
     }
 
     status = i2cBus_->readReg32(reg, regval);
+
     if (!status)
         return false;
 
@@ -150,7 +181,7 @@ Converter::Builder& Converter::Builder::buildGpioBusy(std::string gpiochip,
 Converter::Builder& Converter::Builder::buildGpioMode(std::string gpiochip,
     int line)
 {
-    cnv_->gpioMode_ = std::make_unique<GpioOut>(gpiochip, line);
+    cnv_->gpioMode_ = std::make_shared<GpioOut>(gpiochip, line);
     return *this;
 }
 
@@ -163,5 +194,8 @@ Converter::Builder& Converter::Builder::buildGpioReset(std::string gpiochip,
 
 std::unique_ptr<Converter> Converter::Builder::build()
 {
+    if (!cnv_->i2cBus_)
+        throw std::runtime_error("i2c is not initialized");
+
     return std::move(cnv_);
 }
