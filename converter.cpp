@@ -19,61 +19,102 @@ extern "C"
 }
 
 
-Gpio::Gpio(std::string gpiochip, int line) : chip(gpiochip), line(line)
+Gpio::Gpio(std::string gpiochip, int line) : chip_(gpiochip), line_(line)
 {
-    std::cout << "Gpio" << std::endl;
+    std::cout << __func__ << std::endl;
 }
 
 Gpio::~Gpio()
 {
-    std::cout << "~Gpio" << std::endl;
+    std::cout << __func__ << std::endl;
 }
 
 
 GpioIn::GpioIn(std::string gpiochip, int line) : Gpio(gpiochip, line)
 {
-    std::cout << "GpioIn" << std::endl;
+    std::cout << __func__ << std::endl;
 }
 
 
-I2c::I2c(int dev, int address) : address(address)
+GpioOut::GpioOut(std::string gpiochip, int line) : Gpio(gpiochip, line)
 {
-    std::cout << "I2c" << std::endl;
+    std::cout << __func__ << std::endl;
+}
+
+
+I2c::I2c(int dev, int address) : address_(address)
+{
+    std::cout << __func__ << std::endl;
 
     std::stringstream stream;
     int ret;
 
     stream << "/dev/i2c-" << dev;
 
-    fd = open(stream.str().c_str(), O_RDWR);
-    if (fd < 0)
+    fd_ = open(stream.str().c_str(), O_RDWR);
+    if (fd_ < 0)
         throw std::runtime_error("can not open i2c dev");
 
-    ret = ioctl(fd, I2C_SLAVE, address);
+    ret = ioctl(fd_, I2C_SLAVE, address_);
     if (ret < 0)
         throw std::runtime_error("can not set i2c slave address");
 }
 
-I2c::I2c(I2c &&other) : fd(other.fd), address(other.address)
-{
-    std::cout << "I2c (move)" << std::endl;
-
-    other.fd = -1;
-}
-
 I2c::~I2c()
 {
-    std::cout << "~I2c" << " " << this << " " << fd << std::endl;
+    std::cout << __func__ << std::endl;
 }
 
 
-Converter::Converter(I2c &&bus, GpioIn &busy, GpioOut &mode, GpioOut &reset)
-    : i2cBus(std::move(bus)), gpioBusy(busy), gpioMode(mode), gpioReset(reset)
+Converter::Converter()
 {
-    std::cout << "Converter" << std::endl;
+    std::cout << __func__ << std::endl;
 }
 
 Converter::~Converter()
 {
-    std::cout << "~Converter" << std::endl;
+    std::cout << __func__ << std::endl;
+}
+
+
+Converter::Builder::Builder() : cnv_(std::make_unique<Converter>())
+{
+    std::cout << __func__ << std::endl;
+}
+
+Converter::Builder::~Builder()
+{
+    std::cout << __func__ << std::endl;
+}
+
+Converter::Builder& Converter::Builder::buildI2cBus(int dev, int address)
+{
+    cnv_->i2cBus_ = std::make_unique<I2c>(dev, address);
+    return *this;
+}
+
+Converter::Builder& Converter::Builder::buildGpioBusy(std::string gpiochip,
+    int line)
+{
+    cnv_->gpioBusy_ = std::make_unique<GpioIn>(gpiochip, line);
+    return *this;
+}
+
+Converter::Builder& Converter::Builder::buildGpioMode(std::string gpiochip,
+    int line)
+{
+    cnv_->gpioMode_ = std::make_unique<GpioOut>(gpiochip, line);
+    return *this;
+}
+
+Converter::Builder& Converter::Builder::buildGpioReset(std::string gpiochip,
+    int line)
+{
+    cnv_->gpioReset_ = std::make_unique<GpioOut>(gpiochip, line);
+    return *this;
+}
+
+std::unique_ptr<Converter> Converter::Builder::build()
+{
+    return std::move(cnv_);
 }

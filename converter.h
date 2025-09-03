@@ -17,13 +17,13 @@ class Gpio
 {
 public:
     Gpio(std::string gpiochip, int line);
-    // Gpio(const Gpio &) = delete;
-    // Gpio &operator=(const Gpio &) = delete;
+    Gpio(const Gpio&) = delete;
+    Gpio& operator=(const Gpio&) = delete;
     ~Gpio();
 
-protected:
-    gpiod::chip chip;
-    const int line;
+private:
+    gpiod::chip chip_;
+    const int line_;
 };
 
 
@@ -31,15 +31,14 @@ class GpioIn : public Gpio
 {
 public:
     GpioIn(std::string gpiochip, int line);
-    bool get(int &val);
+    bool get(int& val);
 };
 
 
 class GpioOut : public Gpio
 {
 public:
-    // using Gpio::Gpio;
-    GpioOut(std::string gpiochip, int line) : Gpio(gpiochip, line) {};
+    GpioOut(std::string gpiochip, int line);
     bool set(int val);
 };
 
@@ -48,37 +47,52 @@ class I2c
 {
 public:
     I2c(int dev, int address);
-    I2c(I2c &&other);
-    I2c(const I2c &) = delete;
-    I2c &operator=(const I2c &) = delete;
+    I2c(const I2c&) = delete;
+    I2c& operator=(const I2c&) = delete;
     ~I2c();
 
-    bool read(std::vector<uint8_t> &buf);
-    bool write(std::vector<uint8_t> &buf);
+    bool read(std::vector<uint8_t>& buf);
+    bool write(std::vector<uint8_t>& buf);
     
-    bool readReg8(uint8_t reg, uint8_t &val);
+    bool readReg8(uint8_t reg, uint8_t& val);
     bool writeReg8(uint8_t reg, uint8_t val);
 
-    bool readReg32(uint8_t reg, uint32_t &val);
+    bool readReg32(uint8_t reg, uint32_t& val);
     bool writeReg32(uint8_t reg, uint32_t val);
 
-protected:
-    int fd;
-    const int address;
+private:
+    int fd_;
+    const int address_;
 };
 
 
 class Converter
 {
 public:
-    Converter(I2c &&bus, GpioIn &busy, GpioOut &mode, GpioOut &reset);
+    Converter();
     ~Converter();
 
-protected:
-    I2c i2cBus;
-    GpioIn gpioBusy;
-    GpioOut gpioMode;
-    GpioOut gpioReset;
+    class Builder
+    {
+    public:
+        Builder();
+        ~Builder();
+
+        Builder& buildI2cBus(int dev, int address);
+        Builder& buildGpioBusy(std::string gpiochip, int line);
+        Builder& buildGpioMode(std::string gpiochip, int line);
+        Builder& buildGpioReset(std::string gpiochip, int line);
+        std::unique_ptr<Converter> build();
+
+    private:
+        std::unique_ptr<Converter> cnv_;
+    };
+
+private:
+    std::unique_ptr<I2c> i2cBus_;
+    std::unique_ptr<GpioIn> gpioBusy_;
+    std::unique_ptr<GpioOut> gpioMode_;
+    std::unique_ptr<GpioOut> gpioReset_;
 };
 
 #endif /* CONVERTER_H_ */
