@@ -21,8 +21,10 @@ public:
     Gpio& operator=(const Gpio&) = delete;
     ~Gpio();
 
-private:
+protected:
     gpiod::chip chip_;
+
+private:
     const int line_;
 };
 
@@ -69,9 +71,6 @@ private:
 class Converter
 {
 public:
-    Converter();
-    ~Converter();
-
     class Builder
     {
     public:
@@ -87,6 +86,24 @@ public:
     private:
         std::unique_ptr<Converter> cnv_;
     };
+
+    enum class Counter { RX, TX };
+    enum class GpioNum { GPIO1, GPIO2, GPIO3 };
+    enum class GpioMode { IN_FL, IN_PU, OUT_PP, OUT_OD };
+    enum class SpiMode { MODE0, MODE1, MODE2, MODE3 };
+    enum class SpiBaudrate { BR2, BR4, BR8, BR16, BR32, BR64, BR128, BR256 };
+
+    Converter();
+    ~Converter();
+
+    bool getCounter(Counter counter, unsigned long& val);
+    bool resetCounter(Counter counter);
+
+    bool getGpioValue(GpioNum num, bool& value);
+    bool setGpioValue(GpioNum num, bool value);
+    bool setGpioMode(GpioNum num, GpioMode mode);
+    bool setSpiMode(SpiMode mode);
+    bool setSpiBaudrate(SpiBaudrate baudrate);
 
 private:
     std::unique_ptr<I2c> i2cBus_;

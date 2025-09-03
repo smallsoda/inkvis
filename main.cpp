@@ -19,5 +19,8 @@ int main()
         .buildGpioReset("/dev/gpiochip0", 0)
         .build();
 
+    unsigned long val;
+    converter->getCounter(Converter::Counter::RX, val);
+
     std::cout << "exit <<" << std::endl;
 }
