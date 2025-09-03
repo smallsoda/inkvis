@@ -37,7 +37,7 @@ extern "C"
 #define CMD_SPI_BAUDRATE 0x40
 
 
-Gpio::Gpio(std::string gpiochip, int line) : chip_(gpiochip), line_(line)
+Gpio::Gpio(std::string const &gpiochip, int line) : chip_(gpiochip), line_(line)
 {
     std::cout << __func__ << std::endl;
 }
@@ -48,13 +48,13 @@ Gpio::~Gpio()
 }
 
 
-GpioIn::GpioIn(std::string gpiochip, int line) : Gpio(gpiochip, line)
+GpioIn::GpioIn(std::string const &gpiochip, int line) : Gpio(gpiochip, line)
 {
     std::cout << __func__ << std::endl;
 }
 
 
-GpioOut::GpioOut(std::string gpiochip, int line) : Gpio(gpiochip, line)
+GpioOut::GpioOut(std::string const &gpiochip, int line) : Gpio(gpiochip, line)
 {
     std::cout << __func__ << std::endl;
 }
@@ -83,7 +83,7 @@ I2c::~I2c()
     std::cout << __func__ << std::endl;
 }
 
-bool I2c::readReg32(uint8_t reg, uint32_t& val)
+bool I2c::readReg32(uint8_t reg, uint32_t& val) const
 {
     std::cout << __func__ << std::endl;
 
@@ -101,10 +101,10 @@ Converter::~Converter()
     std::cout << __func__ << std::endl;
 }
 
-bool Converter::getCounter(Counter counter, unsigned long& val)
+bool Converter::getCounter(Counter counter, unsigned long& val) const
 {
     std::cout << __func__ << std::endl;
-    
+
     uint32_t regval;
     uint8_t reg;
     bool status;

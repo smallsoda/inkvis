@@ -16,7 +16,7 @@
 class Gpio
 {
 public:
-    Gpio(std::string gpiochip, int line);
+    Gpio(std::string const& gpiochip, int line);
     Gpio(const Gpio&) = delete;
     Gpio& operator=(const Gpio&) = delete;
     ~Gpio();
@@ -32,16 +32,16 @@ private:
 class GpioIn : public Gpio
 {
 public:
-    GpioIn(std::string gpiochip, int line);
-    bool get(int& val);
+    GpioIn(std::string const& gpiochip, int line);
+    bool get(int& val) const;
 };
 
 
 class GpioOut : public Gpio
 {
 public:
-    GpioOut(std::string gpiochip, int line);
-    bool set(int val);
+    GpioOut(std::string const& gpiochip, int line);
+    bool set(int val) const;
 };
 
 
@@ -53,14 +53,14 @@ public:
     I2c& operator=(const I2c&) = delete;
     ~I2c();
 
-    bool read(std::vector<uint8_t>& buf);
-    bool write(std::vector<uint8_t>& buf);
+    bool read(std::vector<uint8_t>& buf) const;
+    bool write(std::vector<uint8_t> const& buf) const;
     
-    bool readReg8(uint8_t reg, uint8_t& val);
-    bool writeReg8(uint8_t reg, uint8_t val);
+    bool readReg8(uint8_t reg, uint8_t& val) const;
+    bool writeReg8(uint8_t reg, uint8_t val) const;
 
-    bool readReg32(uint8_t reg, uint32_t& val);
-    bool writeReg32(uint8_t reg, uint32_t val);
+    bool readReg32(uint8_t reg, uint32_t& val) const;
+    bool writeReg32(uint8_t reg, uint32_t val) const;
 
 private:
     int fd_;
@@ -96,14 +96,14 @@ public:
     Converter();
     ~Converter();
 
-    bool getCounter(Counter counter, unsigned long& val);
-    bool resetCounter(Counter counter);
+    bool getCounter(Counter counter, unsigned long& val) const;
+    bool resetCounter(Counter counter) const;
 
-    bool getGpioValue(GpioNum num, bool& value);
-    bool setGpioValue(GpioNum num, bool value);
-    bool setGpioMode(GpioNum num, GpioMode mode);
-    bool setSpiMode(SpiMode mode);
-    bool setSpiBaudrate(SpiBaudrate baudrate);
+    bool getGpioValue(GpioNum num, bool& value) const;
+    bool setGpioValue(GpioNum num, bool value) const;
+    bool setGpioMode(GpioNum num, GpioMode mode) const;
+    bool setSpiMode(SpiMode mode) const;
+    bool setSpiBaudrate(SpiBaudrate baudrate) const;
 
 private:
     std::unique_ptr<I2c> i2cBus_;
