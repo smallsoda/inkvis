@@ -54,14 +54,21 @@ I2c::I2c(int dev, int address) : address(address)
         throw std::runtime_error("can not set i2c slave address");
 }
 
+I2c::I2c(I2c &&other) : fd(other.fd), address(other.address)
+{
+    std::cout << "I2c (move)" << std::endl;
+
+    other.fd = -1;
+}
+
 I2c::~I2c()
 {
-    std::cout << "~I2c" << " " << this << std::endl;
+    std::cout << "~I2c" << " " << this << " " << fd << std::endl;
 }
 
 
-Converter::Converter(I2c &bus, GpioIn &busy, GpioOut &mode, GpioOut &reset)
-    : i2cBus(bus), gpioBusy(busy), gpioMode(mode), gpioReset(reset)
+Converter::Converter(I2c &&bus, GpioIn &busy, GpioOut &mode, GpioOut &reset)
+    : i2cBus(std::move(bus)), gpioBusy(busy), gpioMode(mode), gpioReset(reset)
 {
     std::cout << "Converter" << std::endl;
 }
@@ -70,14 +77,3 @@ Converter::~Converter()
 {
     std::cout << "~Converter" << std::endl;
 }
-
-
-// ConverterBuilder::ConverterBuilder() : cnv(std::make_unique<Converter>())
-// {
-//     std::cout << "ConverterBuilder" << std::endl;
-// }
-
-// ConverterBuilder::~ConverterBuilder()
-// {
-//     std::cout << "~ConverterBuilder" << std::endl;
-// }

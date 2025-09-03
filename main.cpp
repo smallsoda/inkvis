@@ -17,7 +17,7 @@ int main()
     GpioIn busy{"/dev/gpiochip0", 2};
     I2c bus{3, 0x48};
 
-    Converter conv{bus, busy, mode, reset};
+    Converter conv{std::move(bus), busy, mode, reset};
 
     std::cout << "exit <<" << std::endl;
 }

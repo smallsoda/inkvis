@@ -48,8 +48,9 @@ class I2c
 {
 public:
     I2c(int dev, int address);
-    // I2c(const I2c &) = delete;
-    // I2c &operator=(const I2c &) = delete;
+    I2c(I2c &&other);
+    I2c(const I2c &) = delete;
+    I2c &operator=(const I2c &) = delete;
     ~I2c();
 
     bool read(std::vector<uint8_t> &buf);
@@ -69,11 +70,8 @@ protected:
 
 class Converter
 {
-private:
-    // Converter(I2c &bus, GpioIn &busy, GpioOut &mode, GpioOut &reset);
-
 public:
-    Converter(I2c &bus, GpioIn &busy, GpioOut &mode, GpioOut &reset);
+    Converter(I2c &&bus, GpioIn &busy, GpioOut &mode, GpioOut &reset);
     ~Converter();
 
 protected:
@@ -82,18 +80,5 @@ protected:
     GpioOut gpioMode;
     GpioOut gpioReset;
 };
-
-
-// class ConverterBuilder
-// {
-// public:
-//     ConverterBuilder();
-//     ~ConverterBuilder();
-
-//     void buildI2cBus(int dev, int address);
-
-// private:
-//     std::unique_ptr<Converter> cnv;
-// };
 
 #endif /* CONVERTER_H_ */
