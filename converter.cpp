@@ -9,6 +9,14 @@
 #include "converter.h"
 
 #include <iostream>
+#include <sstream>
+
+extern "C"
+{
+#include <linux/i2c-dev.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+}
 
 
 Gpio::Gpio(std::string gpiochip, int line) : chip(gpiochip), line(line)
@@ -26,3 +34,50 @@ GpioIn::GpioIn(std::string gpiochip, int line) : Gpio(gpiochip, line)
 {
     std::cout << "GpioIn" << std::endl;
 }
+
+
+I2c::I2c(int dev, int address) : address(address)
+{
+    std::cout << "I2c" << std::endl;
+
+    std::stringstream stream;
+    int ret;
+
+    stream << "/dev/i2c-" << dev;
+
+    fd = open(stream.str().c_str(), O_RDWR);
+    if (fd < 0)
+        throw std::runtime_error("can not open i2c dev");
+
+    ret = ioctl(fd, I2C_SLAVE, address);
+    if (ret < 0)
+        throw std::runtime_error("can not set i2c slave address");
+}
+
+I2c::~I2c()
+{
+    std::cout << "~I2c" << " " << this << std::endl;
+}
+
+
+Converter::Converter(I2c &bus, GpioIn &busy, GpioOut &mode, GpioOut &reset)
+    : i2cBus(bus), gpioBusy(busy), gpioMode(mode), gpioReset(reset)
+{
+    std::cout << "Converter" << std::endl;
+}
+
+Converter::~Converter()
+{
+    std::cout << "~Converter" << std::endl;
+}
+
+
+// ConverterBuilder::ConverterBuilder() : cnv(std::make_unique<Converter>())
+// {
+//     std::cout << "ConverterBuilder" << std::endl;
+// }
+
+// ConverterBuilder::~ConverterBuilder()
+// {
+//     std::cout << "~ConverterBuilder" << std::endl;
+// }

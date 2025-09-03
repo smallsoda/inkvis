@@ -12,8 +12,12 @@ int main()
 {
     std::cout << "main >>" << std::endl;
 
-    GpioIn in{"/dev/gpiochip0", 1};
-    GpioOut out{"/dev/gpiochip0", 2};
+    GpioOut reset{"/dev/gpiochip0", 0};
+    GpioOut mode{"/dev/gpiochip0", 1};
+    GpioIn busy{"/dev/gpiochip0", 2};
+    I2c bus{3, 0x48};
 
-    std::cout << "exit" << std::endl;
+    Converter conv{bus, busy, mode, reset};
+
+    std::cout << "exit <<" << std::endl;
 }
