@@ -125,6 +125,14 @@ Converter::Converter()
     std::cout << __func__ << std::endl;
 }
 
+Converter::Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
+        std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset)
+    : i2cBus_(std::move(bus)), gpioBusy_(std::move(busy)),
+    gpioMode_(std::move(mode)), gpioReset_(std::move(reset))
+{
+    std::cout << __func__ << std::endl;
+}
+
 Converter::~Converter()
 {
     std::cout << __func__ << std::endl;
