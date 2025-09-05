@@ -93,8 +93,8 @@ public:
     enum class SpiMode { MODE0, MODE1, MODE2, MODE3 };
     enum class SpiBaudrate { BR2, BR4, BR8, BR16, BR32, BR64, BR128, BR256 };
 
-    Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn>,
-        std::shared_ptr<GpioOut>, std::unique_ptr<GpioOut>);
+    Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
+        std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset);
     Converter();
     ~Converter();
 

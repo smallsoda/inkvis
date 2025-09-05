@@ -3,7 +3,7 @@ CXXFLAGS := --sysroot=/usr/local/tanowrt-x86_64/sysroots/aarch64-oe-linux
 CPPFLAGS := -L ./lib -I ./libgpiod-1.4.3/include -I ./libgpiod-1.4.3/bindings/cxx
 LDLIBS   := -lgpiod -lgpiodcxx
 
-CXXFLAGS += -Wall
+CXXFLAGS += -Wall -std=c++17
 
 EXECUTABLE = inkvis
 
