@@ -16,32 +16,36 @@
 class Gpio
 {
 public:
-    Gpio(std::string const& gpiochip, int line);
+    Gpio(int dev, int line);
     Gpio(const Gpio&) = delete;
     Gpio& operator=(const Gpio&) = delete;
-    ~Gpio();
-
-protected:
-    gpiod::chip chip_;
+    ~Gpio() = default;
 
 private:
-    const int line_;
+    std::unique_ptr<gpiod::chip> chip_;
+
+protected:
+    std::unique_ptr<gpiod::line> line_;
 };
 
 
 class GpioIn : public Gpio
 {
 public:
-    GpioIn(std::string const& gpiochip, int line);
-    bool get(int& val) const;
+    GpioIn(const std::string& name, int dev, int line);
+    ~GpioIn();
+
+    int get() const;
 };
 
 
 class GpioOut : public Gpio
 {
 public:
-    GpioOut(std::string const& gpiochip, int line);
-    bool set(int val) const;
+    GpioOut(const std::string& name, int dev, int line);
+    ~GpioOut();
+
+    void set(int val) const;
 };
 
 
@@ -53,8 +57,8 @@ public:
     I2c& operator=(const I2c&) = delete;
     ~I2c();
 
-    bool read(std::vector<uint8_t>& buf) const;
-    bool write(std::vector<uint8_t> const& buf) const;
+    bool readData(std::vector<uint8_t>& buf, size_t len) const;
+    bool writeData(const std::vector<uint8_t>& buf) const;
     
     bool readReg8(uint8_t reg, uint8_t& val) const;
     bool writeReg8(uint8_t reg, uint8_t val) const;
@@ -75,12 +79,12 @@ public:
     {
     public:
         Builder();
-        ~Builder();
+        ~Builder() = default;
 
         Builder& buildI2cBus(int dev, int address);
-        Builder& buildGpioBusy(std::string gpiochip, int line);
-        Builder& buildGpioMode(std::string gpiochip, int line);
-        Builder& buildGpioReset(std::string gpiochip, int line);
+        Builder& buildGpioBusy(int dev, int line);
+        Builder& buildGpioMode(int dev, int line);
+        Builder& buildGpioReset(int dev, int line);
         std::unique_ptr<Converter> build();
 
     private:
@@ -96,10 +100,10 @@ public:
     Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
         std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset);
     Converter();
-    ~Converter();
+    ~Converter() = default;
 
-    bool read(std::vector<uint8_t>& buf) const;
-    bool write(std::vector<uint8_t> const& buf) const;
+    bool readData(std::vector<uint8_t>& buf, size_t len) const;
+    bool writeData(const std::vector<uint8_t>& buf) const;
 
     bool getCounter(Counter counter, unsigned long& val) const;
     bool resetCounter(Counter counter) const;

@@ -15,6 +15,7 @@ extern "C"
 {
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include <fcntl.h>
 }
 
@@ -59,33 +60,47 @@ private:
 };
 
 
-Gpio::Gpio(std::string const &gpiochip, int line) : chip_(gpiochip), line_(line)
+Gpio::Gpio(int dev, int line)
 {
-    std::cout << __func__ << std::endl;
-}
+    std::stringstream stream;
 
-Gpio::~Gpio()
-{
-    std::cout << __func__ << std::endl;
-}
+    stream << "gpiochip" << dev;
 
-
-GpioIn::GpioIn(std::string const &gpiochip, int line) : Gpio(gpiochip, line)
-{
-    std::cout << __func__ << std::endl;
+    chip_ = std::make_unique<gpiod::chip>(stream.str());
+    /* Is it ok? */
+    line_ = std::make_unique<gpiod::line>(std::move(chip_->get_line(line)));
 }
 
 
-GpioOut::GpioOut(std::string const &gpiochip, int line) : Gpio(gpiochip, line)
+GpioIn::GpioIn(const std::string& name, int dev, int line) : Gpio(dev, line)
 {
-    std::cout << __func__ << std::endl;
+    line_->request({name, gpiod::line_request::DIRECTION_INPUT, 0}, 0);
 }
 
-bool GpioOut::set(int val) const
+GpioIn::~GpioIn()
 {
-    std::cout << __func__ << std::endl;
+    line_->release();
+}
 
-    return false;
+int GpioIn::get() const
+{
+    return line_->get_value();
+}
+
+
+GpioOut::GpioOut(const std::string& name, int dev, int line) : Gpio(dev, line)
+{
+    line_->request({name, gpiod::line_request::DIRECTION_OUTPUT, 0}, 0);
+}
+
+GpioOut::~GpioOut()
+{
+    line_->release();
+}
+
+void GpioOut::set(int val) const
+{
+    line_->set_value(val);
 }
 
 
@@ -110,32 +125,118 @@ I2c::I2c(int dev, int address) : address_(address)
 I2c::~I2c()
 {
     std::cout << __func__ << std::endl;
+
+    close(fd_);
+}
+
+bool I2c::readData(std::vector<uint8_t>& buf, size_t len) const
+{
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
+}
+
+bool I2c::writeData(const std::vector<uint8_t>& buf) const
+{
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
+}
+
+bool I2c::readReg8(uint8_t reg, uint8_t& val) const
+{
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
+}
+
+bool I2c::writeReg8(uint8_t reg, uint8_t val) const
+{
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
 bool I2c::readReg32(uint8_t reg, uint32_t& val) const
 {
     std::cout << __func__ << std::endl;
 
+    // TODO
     return false;
 }
 
+bool I2c::writeReg32(uint8_t reg, uint32_t val) const
+{
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
+}
+
+
+Converter::Builder::Builder() : cnv_(std::make_unique<Converter>()) {}
+
+Converter::Builder& Converter::Builder::buildI2cBus(int dev, int address)
+{
+    cnv_->i2cBus_ = std::make_unique<I2c>(dev, address);
+    return *this;
+}
+
+Converter::Builder& Converter::Builder::buildGpioBusy(int dev, int line)
+{
+    cnv_->gpioBusy_ = std::make_unique<GpioIn>("busy", dev, line);
+    return *this;
+}
+
+Converter::Builder& Converter::Builder::buildGpioMode(int dev, int line)
+{
+    cnv_->gpioMode_ = std::make_shared<GpioOut>("mode", dev, line);
+    return *this;
+}
+
+Converter::Builder& Converter::Builder::buildGpioReset(int dev, int line)
+{
+    cnv_->gpioReset_ = std::make_unique<GpioOut>("reset", dev, line);
+    return *this;
+}
+
+std::unique_ptr<Converter> Converter::Builder::build()
+{
+    if (!cnv_->i2cBus_)
+        throw std::runtime_error("i2c is not initialized");
+
+    return std::move(cnv_);
+}
+
+
+Converter::Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
+        std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset)
+    : i2cBus_(std::move(bus)), gpioBusy_(std::move(busy)),
+    gpioMode_(std::move(mode)), gpioReset_(std::move(reset)) {}
 
 Converter::Converter()
 {
     std::cout << __func__ << std::endl;
 }
 
-Converter::Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
-        std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset)
-    : i2cBus_(std::move(bus)), gpioBusy_(std::move(busy)),
-    gpioMode_(std::move(mode)), gpioReset_(std::move(reset))
+bool Converter::readData(std::vector<uint8_t>& buf, size_t len) const
 {
     std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
-Converter::~Converter()
+bool Converter::writeData(const std::vector<uint8_t>& buf) const
 {
     std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
 bool Converter::getCounter(Counter counter, unsigned long& val) const
@@ -162,48 +263,66 @@ bool Converter::getCounter(Counter counter, unsigned long& val) const
     return true;
 }
 
-
-Converter::Builder::Builder() : cnv_(std::make_unique<Converter>())
+bool Converter::resetCounter(Counter counter) const
 {
     std::cout << __func__ << std::endl;
+
+    GpioSetter mode_setter(gpioMode_, false);
+    std::vector<uint8_t> val;
+
+    switch (counter)
+    {
+        case Counter::RX: val.push_back(CMD_RXC_RESET); break;
+        case Counter::TX: val.push_back(CMD_TXC_RESET); break;
+    }
+
+    return i2cBus_->write(val);
 }
 
-Converter::Builder::~Builder()
+bool Converter::getGpioValue(GpioNum num, bool& value) const
 {
     std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
-Converter::Builder& Converter::Builder::buildI2cBus(int dev, int address)
+bool Converter::setGpioValue(GpioNum num, bool value) const
 {
-    cnv_->i2cBus_ = std::make_unique<I2c>(dev, address);
-    return *this;
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
-Converter::Builder& Converter::Builder::buildGpioBusy(std::string gpiochip,
-    int line)
+bool Converter::setGpioMode(GpioNum num, GpioMode mode) const
 {
-    cnv_->gpioBusy_ = std::make_unique<GpioIn>(gpiochip, line);
-    return *this;
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
-Converter::Builder& Converter::Builder::buildGpioMode(std::string gpiochip,
-    int line)
+bool Converter::setSpiMode(SpiMode mode) const
 {
-    cnv_->gpioMode_ = std::make_shared<GpioOut>(gpiochip, line);
-    return *this;
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
-Converter::Builder& Converter::Builder::buildGpioReset(std::string gpiochip,
-    int line)
+bool Converter::setSpiBaudrate(SpiBaudrate baudrate) const
 {
-    cnv_->gpioReset_ = std::make_unique<GpioOut>(gpiochip, line);
-    return *this;
+    std::cout << __func__ << std::endl;
+
+    // TODO
+    return false;
 }
 
-std::unique_ptr<Converter> Converter::Builder::build()
+bool Converter::reset() const
 {
-    if (!cnv_->i2cBus_)
-        throw std::runtime_error("i2c is not initialized");
+    std::cout << __func__ << std::endl;
 
-    return std::move(cnv_);
+    // TODO
+    return false;
 }
