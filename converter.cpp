@@ -8,12 +8,17 @@
 
 #include "converter.h"
 
+#include <filesystem>
 #include <iostream>
 #include <sstream>
+#include <cstring>
+#include <thread>
+#include <chrono>
 
 extern "C"
 {
 #include <linux/i2c-dev.h>
+#include <linux/i2c.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -60,47 +65,53 @@ private:
 };
 
 
-Gpio::Gpio(int dev, int line)
+Gpio::Gpio(int dev)
 {
     std::stringstream stream;
 
-    stream << "gpiochip" << dev;
-
-    chip_ = std::make_unique<gpiod::chip>(stream.str());
-    /* Is it ok? */
-    line_ = std::make_unique<gpiod::line>(std::move(chip_->get_line(line)));
+    stream << "/dev/gpiochip" << dev;
+    chip_ = std::make_unique<gpiod::chip>(std::filesystem::path(stream.str()));
 }
 
 
-GpioIn::GpioIn(const std::string& name, int dev, int line) : Gpio(dev, line)
+GpioIn::GpioIn(const std::string& name, int dev, int line)
+    : Gpio(dev), offset_(line)
 {
-    line_->request({name, gpiod::line_request::DIRECTION_INPUT, 0}, 0);
+    auto settings =
+        gpiod::line_settings().set_direction(gpiod::line::direction::INPUT);
+
+    request_ = std::make_unique<gpiod::line_request>(
+        chip_->prepare_request()
+            .set_consumer(name)
+            .add_line_settings(offset_, settings)
+            .do_request());
 }
 
-GpioIn::~GpioIn()
+bool GpioIn::get() const
 {
-    line_->release();
-}
-
-int GpioIn::get() const
-{
-    return line_->get_value();
+    return static_cast<bool>(request_->get_value(offset_));
 }
 
 
-GpioOut::GpioOut(const std::string& name, int dev, int line) : Gpio(dev, line)
+GpioOut::GpioOut(const std::string& name, int dev, int line, bool val = false)
+    : Gpio(dev), offset_(line)
 {
-    line_->request({name, gpiod::line_request::DIRECTION_OUTPUT, 0}, 0);
+    auto settings = gpiod::line_settings()
+        .set_direction(gpiod::line::direction::OUTPUT)
+        .set_output_value(val ? gpiod::line::value::ACTIVE :
+            gpiod::line::value::INACTIVE);
+
+    request_ = std::make_unique<gpiod::line_request>(
+        chip_->prepare_request()
+            .set_consumer(name)
+            .add_line_settings(offset_, settings)
+            .do_request());
 }
 
-GpioOut::~GpioOut()
+void GpioOut::set(bool val) const
 {
-    line_->release();
-}
-
-void GpioOut::set(int val) const
-{
-    line_->set_value(val);
+    request_->set_value(offset_, val ? gpiod::line::value::ACTIVE :
+        gpiod::line::value::INACTIVE);
 }
 
 
@@ -165,8 +176,33 @@ bool I2c::readReg32(uint8_t reg, uint32_t& val) const
 {
     std::cout << __func__ << std::endl;
 
-    // TODO
-    return false;
+    struct i2c_rdwr_ioctl_data msgset;
+    struct i2c_msg msgs[2];
+    uint8_t txb, rxb[4];
+    int ret;
+
+    msgset.msgs = msgs;
+    msgset.nmsgs = 2;
+
+    msgs[0].addr = address_;
+    msgs[0].flags = 0;
+    msgs[0].buf = &txb;
+    msgs[0].len = 1;
+    txb = reg;
+
+    msgs[1].addr = address_;
+    msgs[1].flags = I2C_M_RD;
+    msgs[1].buf = rxb;
+    msgs[1].len = 4;
+    std::memset(rxb, 0, sizeof(rxb));
+
+    ret = ioctl(fd_, I2C_RDWR, &msgset);
+    if (ret < 0)
+        return false;
+
+    val = ((uint32_t) rxb[3] << 24) | ((uint32_t) rxb[2] << 16) |
+        ((uint32_t) rxb[1] << 8) | rxb[0];
+    return true;
 }
 
 bool I2c::writeReg32(uint8_t reg, uint32_t val) const
@@ -194,13 +230,13 @@ Converter::Builder& Converter::Builder::buildGpioBusy(int dev, int line)
 
 Converter::Builder& Converter::Builder::buildGpioMode(int dev, int line)
 {
-    cnv_->gpioMode_ = std::make_shared<GpioOut>("mode", dev, line);
+    cnv_->gpioMode_ = std::make_shared<GpioOut>("mode", dev, line, true);
     return *this;
 }
 
 Converter::Builder& Converter::Builder::buildGpioReset(int dev, int line)
 {
-    cnv_->gpioReset_ = std::make_unique<GpioOut>("reset", dev, line);
+    cnv_->gpioReset_ = std::make_unique<GpioOut>("reset", dev, line, true);
     return *this;
 }
 
@@ -216,7 +252,13 @@ std::unique_ptr<Converter> Converter::Builder::build()
 Converter::Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
         std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset)
     : i2cBus_(std::move(bus)), gpioBusy_(std::move(busy)),
-    gpioMode_(std::move(mode)), gpioReset_(std::move(reset)) {}
+    gpioMode_(std::move(mode)), gpioReset_(std::move(reset))
+{
+    if (gpioMode_)
+        gpioMode_->set(true);
+    if (gpioReset_)
+        gpioReset_->set(true);
+}
 
 Converter::Converter()
 {
@@ -276,7 +318,7 @@ bool Converter::resetCounter(Counter counter) const
         case Counter::TX: val.push_back(CMD_TXC_RESET); break;
     }
 
-    return i2cBus_->write(val);
+    return i2cBus_->writeData(val);
 }
 
 bool Converter::getGpioValue(GpioNum num, bool& value) const
@@ -323,6 +365,13 @@ bool Converter::reset() const
 {
     std::cout << __func__ << std::endl;
 
-    // TODO
-    return false;
+    if (!gpioReset_)
+        return false;
+
+    gpioReset_->set(false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    gpioReset_->set(true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    return true;
 }

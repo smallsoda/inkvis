@@ -16,16 +16,12 @@
 class Gpio
 {
 public:
-    Gpio(int dev, int line);
+    Gpio(int dev);
     Gpio(const Gpio&) = delete;
     Gpio& operator=(const Gpio&) = delete;
-    ~Gpio() = default;
-
-private:
-    std::unique_ptr<gpiod::chip> chip_;
 
 protected:
-    std::unique_ptr<gpiod::line> line_;
+    std::unique_ptr<gpiod::chip> chip_;
 };
 
 
@@ -33,19 +29,23 @@ class GpioIn : public Gpio
 {
 public:
     GpioIn(const std::string& name, int dev, int line);
-    ~GpioIn();
+    bool get() const;
 
-    int get() const;
+private:
+    gpiod::line::offset offset_;
+    std::unique_ptr<gpiod::line_request> request_;
 };
 
 
 class GpioOut : public Gpio
 {
 public:
-    GpioOut(const std::string& name, int dev, int line);
-    ~GpioOut();
+    GpioOut(const std::string& name, int dev, int line, bool val);
+    void set(bool val) const;
 
-    void set(int val) const;
+private:
+    gpiod::line::offset offset_;
+    std::unique_ptr<gpiod::line_request> request_;
 };
 
 
@@ -79,7 +79,6 @@ public:
     {
     public:
         Builder();
-        ~Builder() = default;
 
         Builder& buildI2cBus(int dev, int address);
         Builder& buildGpioBusy(int dev, int line);
@@ -88,6 +87,7 @@ public:
         std::unique_ptr<Converter> build();
 
     private:
+        // TODO: I2C and GPIO instead of Converter
         std::unique_ptr<Converter> cnv_;
     };
 
@@ -99,8 +99,7 @@ public:
 
     Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
         std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset);
-    Converter();
-    ~Converter() = default;
+    Converter(); // TODO: private
 
     bool readData(std::vector<uint8_t>& buf, size_t len) const;
     bool writeData(const std::vector<uint8_t>& buf) const;
