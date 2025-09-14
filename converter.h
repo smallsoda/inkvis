@@ -78,8 +78,6 @@ public:
     class Builder
     {
     public:
-        Builder();
-
         Builder& buildI2cBus(int dev, int address);
         Builder& buildGpioBusy(int dev, int line);
         Builder& buildGpioMode(int dev, int line);
@@ -87,8 +85,10 @@ public:
         std::unique_ptr<Converter> build();
 
     private:
-        // TODO: I2C and GPIO instead of Converter
-        std::unique_ptr<Converter> cnv_;
+        std::unique_ptr<I2c> i2cBus_;
+        std::unique_ptr<GpioIn> gpioBusy_;
+        std::shared_ptr<GpioOut> gpioMode_;
+        std::unique_ptr<GpioOut> gpioReset_;
     };
 
     enum class Counter { RX, TX };
@@ -99,7 +99,7 @@ public:
 
     Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
         std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset);
-    Converter(); // TODO: private
+    ~Converter();
 
     bool readData(std::vector<uint8_t>& buf, size_t len) const;
     bool writeData(const std::vector<uint8_t>& buf) const;
@@ -107,8 +107,8 @@ public:
     bool getCounter(Counter counter, unsigned long& val) const;
     bool resetCounter(Counter counter) const;
 
-    bool getGpioValue(GpioNum num, bool& value) const;
-    bool setGpioValue(GpioNum num, bool value) const;
+    bool getGpioValue(GpioNum num, bool& val) const;
+    bool setGpioValue(GpioNum num, bool val) const;
     bool setGpioMode(GpioNum num, GpioMode mode) const;
     bool setSpiMode(SpiMode mode) const;
     bool setSpiBaudrate(SpiBaudrate baudrate) const;
