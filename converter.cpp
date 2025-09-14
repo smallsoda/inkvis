@@ -25,6 +25,9 @@ extern "C"
 }
 
 
+/* parameters */
+#define MAP_SIZE 1024
+
 /* converter commands */
 #define CMD_RXC_GET      0x04
 #define CMD_TXC_GET      0x05
@@ -162,6 +165,7 @@ I2c::~I2c()
     close(fd_);
 }
 
+// TODO: vector?
 bool I2c::readData(std::vector<uint8_t>& buf, size_t len) const
 {
     ssize_t ret;
@@ -177,6 +181,7 @@ bool I2c::readData(std::vector<uint8_t>& buf, size_t len) const
     return true;
 }
 
+// TODO: vector?
 bool I2c::writeData(const std::vector<uint8_t>& buf) const
 {
     ssize_t ret = write(fd_, buf.data(), buf.size());
@@ -351,18 +356,42 @@ Converter::~Converter()
     std::cout << __func__ << std::endl;
 }
 
+// TODO: vector?
+// TODO: MAP_SIZE
 bool Converter::readData(std::vector<uint8_t>& buf, size_t len) const
 {
-    // TODO: busy
+    if (!waitForReady())
+        return false;
 
     return i2cBus_->readData(buf, len);
 }
 
+// TODO: vector?
 bool Converter::writeData(const std::vector<uint8_t>& buf) const
 {
-    // TODO: busy
+    size_t len = buf.size();
+    size_t index = 0;
+    bool status;
 
-    return i2cBus_->writeData(buf);
+    while (len)
+    {
+        size_t batch_len = (len > MAP_SIZE) ? MAP_SIZE : len;
+
+        std::vector<uint8_t> batch(buf.begin() + index,
+            buf.begin() + index + batch_len);
+
+        index +=batch_len;
+        len -= batch_len;
+
+        if (!waitForReady())
+            return false;
+
+        status = i2cBus_->writeData(batch);
+        if (!status)
+            return false;
+    }
+
+    return true;
 }
 
 bool Converter::getCounter(Counter counter, unsigned long& val) const
@@ -378,6 +407,9 @@ bool Converter::getCounter(Counter counter, unsigned long& val) const
         case Counter::RX: reg = CMD_RXC_GET; break;
         case Counter::TX: reg = CMD_TXC_GET; break;
     }
+
+    if (!waitForReady())
+        return false;
 
     status = i2cBus_->readReg32(reg, regval);
     if (!status)
@@ -399,6 +431,9 @@ bool Converter::resetCounter(Counter counter) const
         case Counter::TX: val.push_back(CMD_TXC_RESET); break;
     }
 
+    if (!waitForReady())
+        return false;
+
     return i2cBus_->writeData(val);
 }
 
@@ -416,6 +451,9 @@ bool Converter::getGpioValue(GpioNum num, bool& val) const
         case GpioNum::GPIO2: reg = CMD_GPIO2_GET; break;
         case GpioNum::GPIO3: reg = CMD_GPIO3_GET; break;
     }
+
+    if (!waitForReady())
+        return false;
 
     status = i2cBus_->readReg8(reg, regval);
     if (!status)
@@ -439,6 +477,9 @@ bool Converter::setGpioValue(GpioNum num, bool val) const
         case GpioNum::GPIO2: reg = CMD_GPIO2_SET; break;
         case GpioNum::GPIO3: reg = CMD_GPIO3_SET; break;
     }
+
+    if (!waitForReady())
+        return false;
 
     status = i2cBus_->writeReg8(reg, regval);
     if (!status)
@@ -470,6 +511,9 @@ bool Converter::setGpioMode(GpioNum num, GpioMode mode) const
         case GpioMode::OUT_OD: regval = GPIO_MODE_OUT_OD; break;
     }
 
+    if (!waitForReady())
+        return false;
+
     status = i2cBus_->writeReg8(reg, regval);
     if (!status)
         return false;
@@ -492,6 +536,9 @@ bool Converter::setSpiMode(SpiMode mode) const
         case SpiMode::MODE2: regval = SPI_MODE_2; break;
         case SpiMode::MODE3: regval = SPI_MODE_3; break;
     }
+
+    if (!waitForReady())
+        return false;
 
     status = i2cBus_->writeReg8(reg, regval);
     if (!status)
@@ -520,6 +567,9 @@ bool Converter::setSpiBaudrate(SpiBaudrate baudrate) const
         case SpiBaudrate::BR256: regval = SPI_BAUDRATE_256; break;
     }
 
+    if (!waitForReady())
+        return false;
+
     status = i2cBus_->writeReg8(reg, regval);
     if (!status)
         return false;
@@ -536,6 +586,24 @@ bool Converter::reset() const
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     gpioReset_->set(true);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    return true;
+}
+
+bool Converter::waitForReady() const
+{
+    // TODO: Add timeouts
+    if (gpioBusy_)
+    {
+        while (gpioBusy_->get())
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    else
+    {
+        std::vector<uint8_t> buf;
+        while (!i2cBus_->readData(buf, 1))
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 
     return true;
 }

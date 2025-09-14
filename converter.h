@@ -116,6 +116,8 @@ public:
     bool reset() const;
 
 private:
+    bool waitForReady() const;
+
     std::unique_ptr<I2c> i2cBus_;
     std::unique_ptr<GpioIn> gpioBusy_;
     std::shared_ptr<GpioOut> gpioMode_;

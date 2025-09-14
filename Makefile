@@ -17,6 +17,8 @@ EXECUTABLE = inkvis
 SOURCES = \
 	main.cpp \
 	converter.cpp \
+	\
+	display.cpp \
 
 OBJECTS=$(subst .cpp,.o,$(SOURCES))
 

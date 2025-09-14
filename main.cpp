@@ -3,14 +3,13 @@
  * 2025
  */
 
-#include "converter.h"
-
 #include <iostream>
-
-#include <thread>
-#include <chrono>
+#include <cstring>
 
 #include <getopt.h>
+
+#include "converter.h"
+#include "display.h"
 
 #define VERSION "0.1"
 
@@ -81,17 +80,15 @@ int main(int argc, char* argv[])
     std::cout << "rx counter: " << rx << std::endl;
     std::cout << "tx counter: " << tx << std::endl;
 
-    /* gpio test */
-    converter->setGpioMode(Converter::GpioNum::GPIO1,
-        Converter::GpioMode::OUT_PP);
-    
-    bool value = false;
-    for (;;)
-    {
-        value = value ? false : true;
-        converter->setGpioValue(Converter::GpioNum::GPIO1, value);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    }
+    /* display test */
+    display_init(converter.get());
+    EPD_4IN2_Init_Fast();
+    EPD_4IN2_Clear();
+
+    uint8_t image[300 * 400 / 8];
+    std::memset(image, 0xFE, sizeof image);
+    EPD_4IN2_Display(image);
+    EPD_4IN2_Sleep();
 
     std::cout << "exit <<" << std::endl;
 }
