@@ -24,9 +24,10 @@ public:
     
     unsigned char* get() const;
     int getChannels() const;
-    void getSize(int &width, int &height) const;
+    void getSize(int& width, int& height) const;
 
-    bool compress(int bpp, std::vector<uint8_t>& buffer) const;
+    bool compress2Colors(uint8_t* buf) const;
+    bool compress4Colors(uint8_t* buf10, uint8_t* buf13) const;
     bool save(const std::string& filename) const;
 
 private:

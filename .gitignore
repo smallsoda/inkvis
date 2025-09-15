@@ -1,4 +1,9 @@
-inkvis
+build/
 .depend
 lib*
 *.o
+
+inkvis
+
+*.png
+*.jpg
