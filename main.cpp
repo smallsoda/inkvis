@@ -10,6 +10,7 @@
 
 #include "converter.h"
 #include "display.h"
+#include "image.h"
 
 #define VERSION "0.1"
 
@@ -20,19 +21,24 @@ int main(int argc, char* argv[])
 
     /* parameters */
     bool param_reset = false;
+    std::string picture;
 
     const struct option lopts[] = {
-        { "reset-cnv", no_argument, NULL, 'r' },
-        { "version",   no_argument, NULL, 'v' },
-        { "help",      no_argument, NULL, 'h' },
+        { "picture",   required_argument, NULL, 'p' },
+        { "reset-cnv", no_argument,       NULL, 'r' },
+        { "version",   no_argument,       NULL, 'v' },
+        { "help",      no_argument,       NULL, 'h' },
         { NULL, 0, NULL, 0 },
     };
     int opt, idx;
 
-    while ((opt = getopt_long(argc, argv, "rvh", lopts, &idx)) != -1)
+    while ((opt = getopt_long(argc, argv, "p:rvh", lopts, &idx)) != -1)
     {
         switch (opt)
         {
+        case 'p':
+            picture = optarg;
+            break;
         case 'r':
             param_reset = true;
             break;
@@ -42,6 +48,7 @@ int main(int argc, char* argv[])
         case 'h':
         case '?':
         default:
+            // TODO
             std::cout << "Usage: " << argv[0] << std::endl;
             return 0;
         }
@@ -85,10 +92,28 @@ int main(int argc, char* argv[])
     EPD_4IN2_Init_Fast();
     EPD_4IN2_Clear();
 
-    uint8_t image[300 * 400 / 8];
-    std::memset(image, 0xFE, sizeof image);
-    EPD_4IN2_Display(image);
+    uint8_t* bimg = new uint8_t[400 * 300 / 8];
+
+    if (picture.empty())
+    {
+        std::memset(bimg, 0xFF, 400 * 300 / 8);
+    }
+    else
+    {
+        std::cout << "image: processing" << std::endl;
+
+        Image image(picture);
+        image.resize(400, 300);
+        image.toGreyscale();
+        image.compress2Colors(bimg);
+
+        std::cout << "image: processing: done" << std::endl;
+    }
+
+    EPD_4IN2_Display(bimg);
     EPD_4IN2_Sleep();
+
+    delete[] bimg;
 
     std::cout << "exit <<" << std::endl;
 }

@@ -1,0 +1,15 @@
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR mipsel)
+
+set(OWRT_STAGING_DIR "/home/user/wolfberry/openwrt/staging_dir")
+set(OWRT_TOOLCHAIN "${OWRT_STAGING_DIR}/toolchain-mipsel_24kc_gcc-14.3.0_musl")
+
+set(CMAKE_SYSROOT "${OWRT_STAGING_DIR}/target-mipsel_24kc_musl")
+set(CMAKE_C_COMPILER "${OWRT_TOOLCHAIN}/bin/mipsel-openwrt-linux-gcc")
+set(CMAKE_CXX_COMPILER "${OWRT_TOOLCHAIN}/bin/mipsel-openwrt-linux-g++")
+
+set(CMAKE_FIND_ROOT_PATH ${CMAKE_SYSROOT})
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)

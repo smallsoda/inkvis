@@ -114,7 +114,7 @@ bool Image::compress2Colors(uint8_t* buf) const
         if (shift == 0)
             buf[index] = 0;
 
-        buf[index] |= tmp << shift;
+        buf[index] |= tmp << (7 - shift);
     }
 
     return true;
