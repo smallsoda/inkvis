@@ -92,28 +92,37 @@ int main(int argc, char* argv[])
     EPD_4IN2_Init_Fast();
     EPD_4IN2_Clear();
 
-    uint8_t* bimg = new uint8_t[400 * 300 / 8];
+    uint8_t* buf10 = new uint8_t[400 * 300 / 8];
+    uint8_t* buf13 = new uint8_t[400 * 300 / 8];
 
     if (picture.empty())
     {
-        std::memset(bimg, 0xFF, 400 * 300 / 8);
+        std::memset(buf10, 0x00, 400 * 300 / 8);
+        std::memset(buf13, 0xFF, 400 * 300 / 8);
     }
     else
     {
         std::cout << "image: processing" << std::endl;
 
+        std::cout << "image: processing: open" << std::endl;
         Image image(picture);
+        std::cout << "image: processing: resize" << std::endl;
         image.resize(400, 300);
+        std::cout << "image: processing: toGreyscale" << std::endl;
         image.toGreyscale();
-        image.compress2Colors(bimg);
+        // image.compress2Colors(buf13);
+        std::cout << "image: processing: compress4Colors" << std::endl;
+        image.compress4Colors(buf10, buf13);
 
         std::cout << "image: processing: done" << std::endl;
     }
 
-    EPD_4IN2_Display(bimg);
+    // EPD_4IN2_Display(buf13);
+    EPD_4IN2_4GrayDisplay(buf10, buf13);
     EPD_4IN2_Sleep();
 
-    delete[] bimg;
+    delete[] buf10;
+    delete[] buf13;
 
     std::cout << "exit <<" << std::endl;
 }

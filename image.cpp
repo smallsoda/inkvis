@@ -120,10 +120,44 @@ bool Image::compress2Colors(uint8_t* buf) const
     return true;
 }
 
+/**
+ * Colors
+ * ┌────────────┬──────┬──────┐
+ * │            │ 0x10 │ 0x13 │
+ * ├────────────┼──────┼──────┤
+ * │ white      │    1 │    1 │
+ * ├────────────┼──────┼──────┤
+ * │ light grey │    1 │    0 │
+ * ├────────────┼──────┼──────┤
+ * │ dark grey  │    0 │    1 │
+ * ├────────────┼──────┼──────┤
+ * │ black      │    0 │    0 │
+ * └────────────┴──────┴──────┘
+ */
 bool Image::compress4Colors(uint8_t* buf10, uint8_t* buf13) const
 {
-    // TODO
-    return false;
+    size_t length = static_cast<size_t>(width_) * height_;
+
+    if (channels_ != GRAYSCALE_CHANNELS)
+        return false;
+
+    for (size_t i = 0; i < length; i++)
+    {
+        int tmp = image_[i] / 64; /* pix * 4 / 256 */
+        size_t index = i / 8;
+        int shift = i % 8;
+
+        if (shift == 0)
+        {
+            buf10[index] = 0;
+            buf13[index] = 0;
+        }
+
+        buf10[index] |= (tmp >> 1) << (7 - shift);
+        buf13[index] |= (tmp & 0x01) << (7 - shift);
+    }
+
+    return true;
 }
 
 bool Image::save(const std::string& filename) const

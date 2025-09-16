@@ -16,6 +16,7 @@ void display_init(Converter* cnv);
 void EPD_4IN2_Init_Fast(void);
 void EPD_4IN2_Clear(void);
 void EPD_4IN2_Display(uint8_t *image);
+void EPD_4IN2_4GrayDisplay(uint8_t *buf10, uint8_t *buf13);
 void EPD_4IN2_Sleep(void);
 
 #endif /* DISPLAY_H_ */
