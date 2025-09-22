@@ -14,11 +14,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(stb)
 
-# image-test
-add_executable(image-test image-test.cpp image.cpp)
-
-target_include_directories(image-test PRIVATE ${stb_SOURCE_DIR})
-
 # inkvis
 set(SOURCES
     "main.cpp"
