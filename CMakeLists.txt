@@ -14,7 +14,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(stb)
 
-# inkvis
 set(SOURCES
     "main.cpp"
     "converter.cpp"
