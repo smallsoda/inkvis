@@ -100,7 +100,6 @@ public:
     virtual bool readBusy(bool& val) const = 0;
     virtual bool writeReset(bool val) const = 0;
     virtual bool writeDc(bool val) const = 0;
-    
     virtual bool writeData(const uint8_t* data, size_t len) const = 0;
 };
 
@@ -114,7 +113,6 @@ public:
     bool readBusy(bool& val) const override;
     bool writeReset(bool val) const override;
     bool writeDc(bool val) const override;
-    
     bool writeData(const uint8_t* data, size_t len) const override;
 
 private:
@@ -133,13 +131,14 @@ public:
 
     bool init() const;
     bool sleep() const;
-    bool clear() const; // ?
+    bool clear() const; /* ? */
     virtual bool show(Image& image) const = 0;
 
 protected:
     bool reset() const;
     bool sendCommand(uint8_t data) const;
     bool sendData(const uint8_t* data, size_t len) const;
+    bool sendData(const std::vector<uint8_t>& data) const;
     bool waitForBusy() const;
     bool turnOn() const;
     virtual bool setLut() const = 0;

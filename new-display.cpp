@@ -12,6 +12,16 @@
 #include <thread>
 #include <chrono>
 
+#define CMD_PANEL_SETTING                  0x00
+#define CMD_POWER_SETTING                  0x01
+#define CMD_POWER_ON                       0x04
+#define CMD_BOOSTER_SOFT_START             0x06
+#define CMD_DISPLAY_REFRESH                0x12
+#define CMD_PLL_CONTROL                    0x30
+#define CMD_VCOM_AND_DATA_INTERVAL_SETTING 0x50
+#define CMD_RESOLUTION_SETTING             0x61
+#define CMD_VCM_DC_SETTING                 0x82
+
 
 class Logger
 {
@@ -122,6 +132,19 @@ bool Display::init() const
 {
     std::cout << __func__ << std::endl;
 
+    bool status;
+
+    status = reset();
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_POWER_SETTING);
+    if (!status)
+        return false;
+    status = sendData({0x03, 0x00, 0x2B, 0x2B});
+    if (!status)
+        return false;
+
     return true;
 }
 
@@ -196,6 +219,23 @@ bool Display::sendData(const uint8_t* data, size_t len) const
     return true;
 }
 
+bool Display::sendData(const std::vector<uint8_t>& data) const
+{
+    std::cout << __func__ << std::endl;
+
+    bool status;
+
+    status = con_->writeDc(true);
+    if (!status)
+        return false;
+
+    status = con_->writeData(data.data(), data.size());
+    if (!status)
+        return false;
+
+    return true;
+}
+
 bool Display::waitForBusy() const
 {
     Logger logger(__func__);
@@ -224,7 +264,7 @@ bool Display::turnOn() const
 
     bool status;
 
-    status = sendCommand(0x12); // todo
+    status = sendCommand(CMD_DISPLAY_REFRESH);
     if (!status)
         return false;
 

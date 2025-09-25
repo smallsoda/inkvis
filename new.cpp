@@ -23,5 +23,7 @@ int main(int argc, char* argv[])
 
     Display2Colors display(std::move(connector));
 
+    display.init();
+
     std::cout << "exit <<" << std::endl;
 }
