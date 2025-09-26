@@ -20,15 +20,8 @@
 /* todo: remove */
 class Image
 {
-    Image()
-    {
-        std::cout << "Image::" << __func__ << std::endl;
-    }
-
-    ~Image()
-    {
-        std::cout << "Image::" << __func__ << std::endl;
-    }
+    Image() {}
+    ~Image() {}
 };
 
 class Converter
@@ -39,57 +32,15 @@ public:
     enum class SpiMode { MODE0, MODE1, MODE2, MODE3 };
     enum class SpiBaudrate { BR2, BR4, BR8, BR16, BR32, BR64, BR128, BR256 };
 
-    Converter()
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-    }
+    Converter() {}
+    ~Converter() {}
 
-    ~Converter()
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-    }
-
-    bool writeData(const std::vector<uint8_t>& buf) const
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-
-        return true;
-    }
-
-    bool getGpioValue(GpioNum num, bool& val) const
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-
-        return true;
-    }
-
-    bool setGpioValue(GpioNum num, bool val) const
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-
-        return true;
-    }
-
-    bool setGpioMode(GpioNum num, GpioMode mode) const
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-
-        return true;
-    }
-
-    bool setSpiMode(SpiMode mode) const
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-
-        return true;
-    }
-
-    bool setSpiBaudrate(SpiBaudrate baudrate) const
-    {
-        std::cout << "Converter::" << __func__ << std::endl;
-
-        return true;
-    }
+    bool writeData(const std::vector<uint8_t>& buf) const { return true; }
+    bool getGpioValue(GpioNum num, bool& val) const { val = true; return true; }
+    bool setGpioValue(GpioNum num, bool val) const { return true; }
+    bool setGpioMode(GpioNum num, GpioMode mode) const { return true; }
+    bool setSpiMode(SpiMode mode) const { return true; }
+    bool setSpiBaudrate(SpiBaudrate baudrate) const { return true; }
 };
 
 
@@ -142,6 +93,8 @@ protected:
     bool waitForBusy() const;
     bool turnOn() const;
     virtual bool setLut() const = 0;
+    virtual std::vector<uint8_t> getSettingPower() const = 0;
+    virtual std::vector<uint8_t> getSettingPanel() const = 0;
 
     std::shared_ptr<Connector> con_;
 };
@@ -154,6 +107,8 @@ public:
 
 private:
     bool setLut() const override;
+    std::vector<uint8_t> getSettingPower() const override;
+    std::vector<uint8_t> getSettingPanel() const override;
 };
 
 class Display4Colors : public Display
@@ -164,6 +119,8 @@ public:
 
 private:
     bool setLut() const override;
+    std::vector<uint8_t> getSettingPower() const override;
+    std::vector<uint8_t> getSettingPanel() const override;
 };
 
 #endif /* DISPLAY_H_ */

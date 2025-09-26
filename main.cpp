@@ -17,7 +17,7 @@
 
 int main(int argc, char* argv[])
 {
-    std::cout << "main >>" << std::endl;
+    std::cout << __func__ << " >>>" << std::endl;
 
     /* parameters */
     bool param_reset = false;
@@ -124,5 +124,5 @@ int main(int argc, char* argv[])
     delete[] buf10;
     delete[] buf13;
 
-    std::cout << "exit <<" << std::endl;
+    std::cout << __func__ << " <<<" << std::endl;
 }

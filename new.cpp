@@ -14,7 +14,7 @@
 
 int main(int argc, char* argv[])
 {
-    std::cout << "main >>" << std::endl;
+    std::cout << __func__ << " >>>" << std::endl;
 
     auto converter = std::make_shared<Converter>();
     auto con_cnv = std::make_shared<ConnectorConverter>(converter, GPIO_RESET,
@@ -25,5 +25,5 @@ int main(int argc, char* argv[])
 
     display.init();
 
-    std::cout << "exit <<" << std::endl;
+    std::cout << __func__ << " <<<" << std::endl;
 }
