@@ -142,8 +142,6 @@ void GpioOut::set(bool val) const
 
 I2c::I2c(int dev, int address) : address_(address)
 {
-    std::cout << __func__ << std::endl;
-
     std::stringstream stream;
     int ret;
 
@@ -160,12 +158,10 @@ I2c::I2c(int dev, int address) : address_(address)
 
 I2c::~I2c()
 {
-    std::cout << __func__ << std::endl;
-
     close(fd_);
 }
 
-// TODO: vector?
+// todo: vector?
 bool I2c::readData(std::vector<uint8_t>& buf, size_t len) const
 {
     ssize_t ret;
@@ -181,7 +177,7 @@ bool I2c::readData(std::vector<uint8_t>& buf, size_t len) const
     return true;
 }
 
-// TODO: vector?
+// todo: vector?
 bool I2c::writeData(const std::vector<uint8_t>& buf) const
 {
     ssize_t ret = write(fd_, buf.data(), buf.size());
@@ -340,8 +336,6 @@ Converter::Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
     : i2cBus_(std::move(bus)), gpioBusy_(std::move(busy)),
     gpioMode_(std::move(mode)), gpioReset_(std::move(reset))
 {
-    std::cout << __func__ << std::endl;
-
     if (!i2cBus_)
         throw std::runtime_error("i2c is not initialized");
 
@@ -351,13 +345,8 @@ Converter::Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
         gpioReset_->set(true);
 }
 
-Converter::~Converter()
-{
-    std::cout << __func__ << std::endl;
-}
-
-// TODO: vector?
-// TODO: MAP_SIZE
+// todo: vector?
+// todo: MAP_SIZE
 bool Converter::readData(std::vector<uint8_t>& buf, size_t len) const
 {
     if (!waitForReady())
@@ -366,7 +355,7 @@ bool Converter::readData(std::vector<uint8_t>& buf, size_t len) const
     return i2cBus_->readData(buf, len);
 }
 
-// TODO: vector?
+// todo: vector?
 bool Converter::writeData(const std::vector<uint8_t>& buf) const
 {
     size_t len = buf.size();
@@ -592,7 +581,7 @@ bool Converter::reset() const
 
 bool Converter::waitForReady() const
 {
-    // TODO: Add timeouts
+    // todo: add timeouts
     if (gpioBusy_)
     {
         while (gpioBusy_->get())

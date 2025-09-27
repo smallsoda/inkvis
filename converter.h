@@ -99,7 +99,6 @@ public:
 
     Converter(std::unique_ptr<I2c> bus, std::unique_ptr<GpioIn> busy,
         std::shared_ptr<GpioOut> mode, std::unique_ptr<GpioOut> reset);
-    ~Converter();
 
     bool readData(std::vector<uint8_t>& buf, size_t len) const;
     bool writeData(const std::vector<uint8_t>& buf) const;

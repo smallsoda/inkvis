@@ -9,386 +9,636 @@
 #include "display.h"
 
 #include <iostream>
-#include <cstring>
 #include <thread>
 #include <chrono>
 
-#define EPD_4IN2_WIDTH  400
-#define EPD_4IN2_HEIGHT 300
+#define DISPLAY_BPP 8
+#define DISPLAY_BUF_SIZE \
+    ((DISPLAY_WIDTH * DISPLAY_HEIGHT + (DISPLAY_BPP - 1)) / DISPLAY_BPP)
+
+#define CMD_PANEL_SETTING                  0x00
+#define CMD_POWER_SETTING                  0x01
+#define CMD_POWER_OFF                      0x02
+#define CMD_POWER_ON                       0x04
+#define CMD_BOOSTER_SOFT_START             0x06
+#define CMD_DEEP_SLEEP                     0x07
+#define CMD_DATA_START_TRANSMISSION_1      0x10
+#define CMD_DISPLAY_REFRESH                0x12
+#define CMD_DATA_START_TRANSMISSION_2      0x13
+#define CMD_VCOM_LUT                       0x20
+#define CMD_W2W_LUT                        0x21
+#define CMD_B2W_LUT                        0x22
+#define CMD_W2B_LUT                        0x23
+#define CMD_B2B_LUT                        0x24
+#define CMD_UNKNOWN_LUT                    0x25
+#define CMD_PLL_CONTROL                    0x30
+#define CMD_VCOM_AND_DATA_INTERVAL_SETTING 0x50
+#define CMD_RESOLUTION_SETTING             0x61
+#define CMD_VCM_DC_SETTING                 0x82
+
+struct Lut2Colors
+{
+    unsigned char vcom[36];
+    unsigned char ww[36];
+    unsigned char bw[36];
+    unsigned char wb[36];
+    unsigned char bb[36];
+};
+
+struct Lut4Colors
+{
+    unsigned char vcom[42];
+    unsigned char ww[42];
+    unsigned char bw[42];
+    unsigned char wb[42];
+    unsigned char bb[42];
+};
+
+Lut2Colors lut2 = {
+    {0x00, 0x08, 0x08, 0x00, 0x00, 0x02, 0x00, 0x0F, 0x0F, 0x00, 0x00, 0x01,
+     0x00, 0x08, 0x08, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x50, 0x08, 0x08, 0x00, 0x00, 0x02, 0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
+     0xA0, 0x08, 0x08, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x50, 0x08, 0x08, 0x00, 0x00, 0x02, 0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
+     0xA0, 0x08, 0x08, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0xA0, 0x08, 0x08, 0x00, 0x00, 0x02, 0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
+     0x50, 0x08, 0x08, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x20, 0x08, 0x08, 0x00, 0x00, 0x02, 0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
+     0x10, 0x08, 0x08, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+};
+
+Lut4Colors lut4 = {
+    {0x00, 0x0A, 0x00, 0x00, 0x00, 0x01, 0x60, 0x14, 0x14, 0x00, 0x00, 0x01,
+     0x00, 0x14, 0x00, 0x00, 0x00, 0x01, 0x00, 0x13, 0x0A, 0x01, 0x00, 0x01,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x40, 0x0A, 0x00, 0x00, 0x00, 0x01, 0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
+     0x10, 0x14, 0x0A, 0x00, 0x00, 0x01, 0xA0, 0x13, 0x01, 0x00, 0x00, 0x01,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x40, 0x0A, 0x00, 0x00, 0x00, 0x01, 0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
+     0x00, 0x14, 0x0A, 0x00, 0x00, 0x01, 0x99, 0x0C, 0x01, 0x03, 0x04, 0x01,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x40, 0x0A, 0x00, 0x00, 0x00, 0x01, 0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
+     0x00, 0x14, 0x0A, 0x00, 0x00, 0x01, 0x99, 0x0B, 0x04, 0x04, 0x01, 0x01,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    {0x80, 0x0A, 0x00, 0x00, 0x00, 0x01, 0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
+     0x20, 0x14, 0x0A, 0x00, 0x00, 0x01, 0x50, 0x13, 0x01, 0x00, 0x00, 0x01,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+};
 
 
-static const unsigned char EPD_4IN2_lut_vcom0[] = {
-    0x00, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x00, 0x0F, 0x0F, 0x00, 0x00, 0x01,
-    0x00, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00};
-static const unsigned char EPD_4IN2_lut_ww[] = {
-    0x50, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
-    0xA0, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const unsigned char EPD_4IN2_lut_bw[] = {
-    0x50, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
-    0xA0, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const unsigned char EPD_4IN2_lut_wb[] = {
-    0xA0, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
-    0x50, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const unsigned char EPD_4IN2_lut_bb[] = {
-    0x20, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x90, 0x0F, 0x0F, 0x00, 0x00, 0x01,
-    0x10, 0x08, 0x08, 0x00, 0x00, 0x02,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+class Logger
+{
+public:
+    Logger(const std::string s) : s_(s)
+    {
+        std::cout << s_ << " >" << std::endl;
+    }
+    ~Logger()
+    {
+        std::cout << s_ << " <" << std::endl;
+    }
 
-// 0~3 gray
-const unsigned char EPD_4IN2_4Gray_lut_vcom[] = {
-    0x00, 0x0A, 0x00, 0x00, 0x00, 0x01,
-    0x60, 0x14, 0x14, 0x00, 0x00, 0x01,
-    0x00, 0x14, 0x00, 0x00, 0x00, 0x01,
-    0x00, 0x13, 0x0A, 0x01, 0x00, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-// R21
-const unsigned char EPD_4IN2_4Gray_lut_ww[] = {
-    0x40, 0x0A, 0x00, 0x00, 0x00, 0x01,
-    0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
-    0x10, 0x14, 0x0A, 0x00, 0x00, 0x01,
-    0xA0, 0x13, 0x01, 0x00, 0x00, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-// R22H r
-const unsigned char EPD_4IN2_4Gray_lut_bw[] = {
-    0x40, 0x0A, 0x00, 0x00, 0x00, 0x01,
-    0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
-    0x00, 0x14, 0x0A, 0x00, 0x00, 0x01,
-    0x99, 0x0C, 0x01, 0x03, 0x04, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-// R23H w
-const unsigned char EPD_4IN2_4Gray_lut_wb[] = {
-    0x40, 0x0A, 0x00, 0x00, 0x00, 0x01,
-    0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
-    0x00, 0x14, 0x0A, 0x00, 0x00, 0x01,
-    0x99, 0x0B, 0x04, 0x04, 0x01, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-// R24H b
-const unsigned char EPD_4IN2_4Gray_lut_bb[] = {
-    0x80, 0x0A, 0x00, 0x00, 0x00, 0x01,
-    0x90, 0x14, 0x14, 0x00, 0x00, 0x01,
-    0x20, 0x14, 0x0A, 0x00, 0x00, 0x01,
-    0x50, 0x13, 0x01, 0x00, 0x00, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-static uint8_t framebuffer[EPD_4IN2_WIDTH * EPD_4IN2_HEIGHT / 8];
-
-
-static Converter* converter;
+private:
+    const std::string s_;
+};
 
 static void delay(int val)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(val));
 }
 
-static int gpio_rd_busy()
-{
-    bool status, val;
 
-    status = converter->getGpioValue(Converter::GpioNum::GPIO1, val);
-    if (!status)
-        std::cerr << "display: error: " << __func__ << std::endl;
-
-    return val;
-}
-
-static void gpio_wr_reset(int val)
+ConnectorConverter::ConnectorConverter(std::shared_ptr<Converter> cnv,
+    Converter::GpioNum reset, Converter::GpioNum busy, Converter::GpioNum dc)
+    : cnv_(cnv), reset_(reset), busy_(busy), dc_(dc)
 {
     bool status;
 
-    status = converter->setGpioValue(Converter::GpioNum::GPIO2, val);
-    if (!status)
-        std::cerr << "display: error: " << __func__ << std::endl;
-}
-
-static void gpio_wr_dc(int val)
-{
-    bool status;
-
-    status = converter->setGpioValue(Converter::GpioNum::GPIO3, val);
-    if (!status)
-        std::cerr << "display: error: " << __func__ << std::endl;
-}
-
-static void write_data(uint8_t* data, size_t len)
-{
-    std::vector<uint8_t> vec(data, data + len);
-    bool status;
-
-    status = converter->writeData(vec);
-    if (!status)
-        std::cerr << "display: error: " << __func__ << std::endl;
-}
-
-void display_init(Converter* cnv)
-{
-    converter = cnv;
-    bool status;
-
-    status = converter->reset();
-    if (!status)
-        std::cerr << "display: error: " << __func__ << " (reset)" << std::endl;
+    /* without reset */
 
     /* busy */
-    status = converter->setGpioMode(Converter::GpioNum::GPIO1,
-        Converter::GpioMode::IN_PU);
+    status = cnv_->setGpioMode(busy_, Converter::GpioMode::IN_PU);
     if (!status)
-        std::cerr << "display: error: " << __func__ << " (gpio: busy)"
-            << std::endl;
+        throw std::runtime_error("can not set gpio mode (busy)");
 
     /* reset */
-    status = converter->setGpioMode(Converter::GpioNum::GPIO2,
-        Converter::GpioMode::OUT_PP);
+    status = cnv_->setGpioMode(reset_, Converter::GpioMode::OUT_PP);
     if (!status)
-        std::cerr << "display: error: " << __func__ << " (gpio: reset)"
-            << std::endl;
+        throw std::runtime_error("can not set gpio mode (reset)");
+    status = cnv_->setGpioValue(reset_, true);
+    if (!status)
+        throw std::runtime_error("can not set gpio value (reset)");
 
     /* dc */
-    status = converter->setGpioMode(Converter::GpioNum::GPIO3,
-        Converter::GpioMode::OUT_PP);
+    status = cnv_->setGpioMode(dc_, Converter::GpioMode::OUT_PP);
     if (!status)
-        std::cerr << "display: error: " << __func__ << " (gpio: dc)"
-            << std::endl;
+        throw std::runtime_error("can not set gpio mode (dc)");
+
+    /* spi */
+    status = cnv_->setSpiMode(Converter::SpiMode::MODE0);
+    if (!status)
+        throw std::runtime_error("can not set spi mode");
+    status = cnv_->setSpiBaudrate(Converter::SpiBaudrate::BR32);
+    if (!status)
+        throw std::runtime_error("can not set spi baudrate");
 }
 
-static void EPD_4IN2_Reset(void)
+bool ConnectorConverter::readBusy(bool& val) const
 {
-    gpio_wr_reset(0);
-    delay(10);
-    gpio_wr_reset(1);
-    delay(10);
-
-    gpio_wr_reset(0);
-    delay(10);
-    gpio_wr_reset(1);
-    delay(10);
-
-    gpio_wr_reset(0);
-    delay(10);
-    gpio_wr_reset(1);
-    delay(10);
+    bool status = cnv_->getGpioValue(busy_, val);
+    if (!status)
+        std::cerr << "converter: error: " << __func__ << std::endl;
+    return status;
 }
 
-static void EPD_4IN2_SendCommand(uint8_t data)
+bool ConnectorConverter::writeReset(bool val) const
 {
-    gpio_wr_dc(0);
-    write_data(&data, 1);
+    bool status = cnv_->setGpioValue(reset_, val);
+    if (!status)
+        std::cerr << "converter: error: " << __func__ << std::endl;
+    return status;
 }
 
-static void EPD_4IN2_SendData(uint8_t data)
+bool ConnectorConverter::writeDc(bool val) const
 {
-    gpio_wr_dc(1);
-    write_data(&data, 1);
+    bool status = cnv_->setGpioValue(dc_, val);
+    if (!status)
+        std::cerr << "converter: error: " << __func__ << std::endl;
+    return status;
 }
 
-static void EPD_4IN2_SendDataBytes(uint8_t* data, size_t len)
+bool ConnectorConverter::writeData(const uint8_t* data, size_t len) const
 {
-    gpio_wr_dc(1);
-    write_data(data, len);
+    std::vector<uint8_t> vec(data, data + len);
+    bool status = cnv_->writeData(vec);
+    if (!status)
+        std::cerr << "converter: error: " << __func__ << std::endl;
+    return status;
 }
 
-void EPD_4IN2_ReadBusy(void)
-{
-    std::cout << "busy pin: wait" << std::endl;
 
-    // LOW: idle, HIGH: busy
-    while (gpio_rd_busy() == 0)
+Display::Display(std::shared_ptr<Connector> con) : con_(std::move(con)) {}
+
+bool Display::init() const
+{
+    bool status;
+
+    status = reset();
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_POWER_SETTING);
+    if (!status)
+        return false;
+    status = sendData(getSettingPower());
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_BOOSTER_SOFT_START);
+    if (!status)
+        return false;
+    status = sendData({0x17, 0x17, 0x17}); /* A B C */
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_POWER_ON);
+    if (!status)
+        return false;
+    status = waitForBusy();
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_PANEL_SETTING);
+    if (!status)
+        return false;
+    status = sendData(getSettingPanel());
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_PLL_CONTROL);
+    if (!status)
+        return false;
+    status = sendData({0x3C}); /* 3A 100HZ, 29 150Hz, 39 200HZ, 31 171HZ */
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_RESOLUTION_SETTING);
+    if (!status)
+        return false;
+    status = sendData({0x01, 0x90, 0x01, 0x2C}); /* 400x300 */
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_VCM_DC_SETTING);
+    if (!status)
+        return false;
+    status = sendData({0x12});
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_VCOM_AND_DATA_INTERVAL_SETTING);
+    if (!status)
+        return false;
+    status = sendData({0x17}); /* {0x97} */
+    if (!status)
+        return false;
+
+    status = setLut();
+    if (!status)
+        return false;
+
+    return true;
+}
+
+bool Display::sleep() const
+{
+    bool status;
+
+    status = sendCommand(CMD_VCOM_AND_DATA_INTERVAL_SETTING); /* Deep sleep? */
+    if (!status)
+        return false;
+    status = sendData({0xF7});
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_POWER_OFF);
+    if (!status)
+        return false;
+    status = waitForBusy();
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_DEEP_SLEEP);
+    if (!status)
+        return false;
+    status = sendData({0xA5}); /* Deep sleep code */
+    if (!status)
+        return false;
+
+    return true;
+}
+
+bool Display::clear() const
+{
+    std::vector<uint8_t> buf(DISPLAY_BUF_SIZE, 0xFF);
+    bool status;
+
+    status = sendCommand(CMD_DATA_START_TRANSMISSION_1);
+    if (!status)
+        return false;
+    status = sendData(buf);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_DATA_START_TRANSMISSION_2);
+    if (!status)
+        return false;
+    status = sendData(buf);
+    if (!status)
+        return false;
+
+    /* ? */
+    status = sendCommand(CMD_DISPLAY_REFRESH);
+    if (!status)
+        return false;
+    delay(10);
+
+    status = turnOn();
+    if (!status)
+        return false;
+
+    return true;
+}
+
+bool Display::reset() const
+{
+    bool status;
+
+    /* 3 times? */
+    for (int i = 0; i < 3; i++)
+    {
+        status = con_->writeReset(false);
+        if (!status)
+            return false;
         delay(10);
 
-    std::cout << "busy pin: done" << std::endl;
+        status = con_->writeReset(true);
+        if (!status)
+            return false;
+        delay(10);
+    }
+
+    return true;
 }
 
-static void EPD_4IN2_TurnOnDisplay(void)
+bool Display::sendCommand(uint8_t data) const
 {
-    EPD_4IN2_SendCommand(0x12);
+    bool status;
+
+    status = con_->writeDc(false);
+    if (!status)
+        return false;
+
+    status = con_->writeData(&data, 1);
+    if (!status)
+        return false;
+
+    return true;
+}
+
+bool Display::sendData(const uint8_t* data, size_t len) const
+{
+    bool status;
+
+    status = con_->writeDc(true);
+    if (!status)
+        return false;
+
+    status = con_->writeData(data, len);
+    if (!status)
+        return false;
+
+    return true;
+}
+
+bool Display::sendData(const std::vector<uint8_t>& data) const
+{
+    return sendData(data.data(), data.size());
+}
+
+bool Display::waitForBusy() const
+{
+    Logger logger(std::string("display: ") + __func__);
+    bool value, status;
+
+    // todo: add timeout
+    for (;;)
+    {
+        /**
+         * low: busy
+         * high: idle
+         */
+        status = con_->readBusy(value);
+        if (!status)
+            return false;
+        if (value)
+            return true;
+
+        delay(10);
+    }
+}
+
+bool Display::turnOn() const
+{
+    bool status;
+
+    status = sendCommand(CMD_DISPLAY_REFRESH);
+    if (!status)
+        return false;
+
     delay(100);
-    EPD_4IN2_ReadBusy();
+
+    status = waitForBusy();
+    if (!status)
+        return false;
+
+    return true;
 }
 
-static void EPD_4IN2_SetLut(void)
+
+Display2Colors::Display2Colors(std::shared_ptr<Connector> con)
+    : Display(std::move(con)) {}
+
+bool Display2Colors::show(Image& image) const
 {
-    unsigned int count;
+    std::vector<uint8_t> buf(DISPLAY_BUF_SIZE, 0x00);
+    bool status;
+    int height;
+    int width;
 
-    EPD_4IN2_SendCommand(0x20);
-    for (count = 0; count < 36; count++)
-        EPD_4IN2_SendData(EPD_4IN2_lut_vcom0[count]);
+    image.getSize(width, height);
 
-    EPD_4IN2_SendCommand(0x21);
-    for (count = 0; count < 36; count++)
-        EPD_4IN2_SendData(EPD_4IN2_lut_ww[count]);
-    
-    EPD_4IN2_SendCommand(0x22);
-    for (count = 0; count < 36; count++)
-        EPD_4IN2_SendData(EPD_4IN2_lut_bw[count]);
+    if (height != DISPLAY_HEIGHT || width != DISPLAY_WIDTH)
+    {
+        std::cout << "display: resize image: " << width << "x" << height
+            << " > " << DISPLAY_WIDTH << "x" << DISPLAY_HEIGHT << std::endl;
 
-    EPD_4IN2_SendCommand(0x23);
-    for(count = 0; count < 36; count++)
-        EPD_4IN2_SendData(EPD_4IN2_lut_wb[count]);
+        status = image.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        if (!status)
+            return false;
+    }
 
-    EPD_4IN2_SendCommand(0x24);
-    for(count = 0; count < 36; count++)
-        EPD_4IN2_SendData(EPD_4IN2_lut_bb[count]);
-}
+    status = image.toGreyscale();
+    if (!status)
+        return false;
 
-static void EPD_4IN2_4Gray_lut(void)
-{
-    unsigned int count;
+    status = sendCommand(CMD_DATA_START_TRANSMISSION_1);
+    if (!status)
+        return false;
+    status = sendData(buf);
+    if (!status)
+        return false;
 
-    EPD_4IN2_SendCommand(0x20); // vcom
-    for (count = 0; count < 42; count++)
-        EPD_4IN2_SendData(EPD_4IN2_4Gray_lut_vcom[count]);
+    status = image.compress2Colors(buf.data());
+    if (!status)
+        return false;
 
-    EPD_4IN2_SendCommand(0x21); // red not use
-    for (count = 0; count < 42; count++)
-        EPD_4IN2_SendData(EPD_4IN2_4Gray_lut_ww[count]);
+    status = sendCommand(CMD_DATA_START_TRANSMISSION_2);
+    if (!status)
+        return false;
+    status = sendData(buf);
+    if (!status)
+        return false;
 
-    EPD_4IN2_SendCommand(0x22); // bw r
-    for (count = 0; count < 42; count++)
-        EPD_4IN2_SendData(EPD_4IN2_4Gray_lut_bw[count]);
-
-    EPD_4IN2_SendCommand(0x23); // wb w
-    for (count = 0; count < 42; count++)
-        EPD_4IN2_SendData(EPD_4IN2_4Gray_lut_wb[count]);
-
-    EPD_4IN2_SendCommand(0x24); // bb b
-    for (count = 0; count < 42; count++)
-        EPD_4IN2_SendData(EPD_4IN2_4Gray_lut_bb[count]);
-
-    EPD_4IN2_SendCommand(0x25); // vcom
-    for (count = 0; count < 42; count++)
-        EPD_4IN2_SendData(EPD_4IN2_4Gray_lut_ww[count]);
-}
-
-void EPD_4IN2_Init_Fast(void)
-{
-    EPD_4IN2_Reset();
-
-    EPD_4IN2_SendData(0x12);
-
-    EPD_4IN2_SendCommand(0x01); // POWER SETTING 
-    EPD_4IN2_SendData(0x03);
-    EPD_4IN2_SendData(0x00);
-    EPD_4IN2_SendData(0x2b);
-    EPD_4IN2_SendData(0x2b);
-
-    EPD_4IN2_SendCommand(0x06); // boost soft start
-    EPD_4IN2_SendData(0x17);    // A
-    EPD_4IN2_SendData(0x17);    // B
-    EPD_4IN2_SendData(0x17);    // C
-
-    EPD_4IN2_SendCommand(0x04);
-    EPD_4IN2_ReadBusy();
-
-    EPD_4IN2_SendCommand(0x00); // panel setting
-    EPD_4IN2_SendData(0xbf);    // KW-bf KWR-2F BWROTP 0f BWOTP 1f
-
-    EPD_4IN2_SendCommand(0x30);
-    EPD_4IN2_SendData(0x3c);    // 3A 100HZ, 29 150Hz, 39 200HZ, 31 171HZ
-
-    EPD_4IN2_SendCommand(0x61); // resolution setting
-    EPD_4IN2_SendData(0x01);
-    EPD_4IN2_SendData(0x90);    // 400
-    EPD_4IN2_SendData(0x01);    // 300
-    EPD_4IN2_SendData(0x2c);
-
-    EPD_4IN2_SendCommand(0x82); // vcom_DC setting
-    EPD_4IN2_SendData(0x12);
-
-    EPD_4IN2_SendCommand(0x50);
-    EPD_4IN2_SendData(0x97);
-
-    EPD_4IN2_SetLut();
-}
-
-void EPD_4IN2_Clear(void)
-{
-    std::memset(framebuffer, 0xFF, sizeof(framebuffer));
-
-    EPD_4IN2_SendCommand(0x10);
-    EPD_4IN2_SendDataBytes(framebuffer, sizeof(framebuffer));
-
-    EPD_4IN2_SendCommand(0x13);
-    EPD_4IN2_SendDataBytes(framebuffer, sizeof(framebuffer));
-
-    EPD_4IN2_SendCommand(0x12); // DISPLAY REFRESH
-    delay(1);    
-    EPD_4IN2_TurnOnDisplay();
-}
-
-void EPD_4IN2_Display(uint8_t *image)
-{
-    memset(framebuffer, 0x00, sizeof(framebuffer));
-
-    EPD_4IN2_SendCommand(0x10);
-    EPD_4IN2_SendDataBytes(framebuffer, sizeof(framebuffer));
-
-    EPD_4IN2_SendCommand(0x13);
-    EPD_4IN2_SendDataBytes(image, sizeof(framebuffer));
-
-    EPD_4IN2_SendCommand(0x12); // DISPLAY REFRESH
+    /* ? */
+    status = sendCommand(CMD_DISPLAY_REFRESH);
+    if (!status)
+        return false;
     delay(10);
-    EPD_4IN2_TurnOnDisplay();
+
+    status = turnOn();
+    if (!status)
+        return false;
+
+    return true;
 }
 
-void EPD_4IN2_4GrayDisplay(uint8_t *buf10, uint8_t *buf13)
+bool Display2Colors::setLut() const
 {
-    EPD_4IN2_SendCommand(0x10);
-    EPD_4IN2_SendDataBytes(buf10, sizeof(framebuffer));
+    bool status;
 
-    EPD_4IN2_SendCommand(0x13);
-    EPD_4IN2_SendDataBytes(buf13, sizeof(framebuffer));
+    status = sendCommand(CMD_VCOM_LUT);
+    if (!status)
+        return false;
+    status = sendData(lut2.vcom, sizeof lut2.vcom);
+    if (!status)
+        return false;
 
-    EPD_4IN2_4Gray_lut(); // ?
-    // EPD_4IN2_TurnOnDisplay();
+    status = sendCommand(CMD_W2W_LUT);
+    if (!status)
+        return false;
+    status = sendData(lut2.ww, sizeof lut2.ww);
+    if (!status)
+        return false;
 
-    // ?
-    EPD_4IN2_SendCommand(0x12); // DISPLAY REFRESH
+    status = sendCommand(CMD_B2W_LUT);
+    if (!status)
+        return false;
+    status = sendData(lut2.bw, sizeof lut2.bw);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_W2B_LUT);
+    if (!status)
+        return false;
+    status = sendData(lut2.wb, sizeof lut2.wb);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_B2B_LUT);
+    if (!status)
+        return false;
+    status = sendData(lut2.bb, sizeof lut2.bb);
+    if (!status)
+        return false;
+
+    return true;
+}
+
+std::vector<uint8_t> Display2Colors::getSettingPower() const
+{
+    return {0x03, 0x00, 0x2B, 0x2B};
+}
+
+std::vector<uint8_t> Display2Colors::getSettingPanel() const
+{
+    return {0xBF}; /* ? */ /* KW-bf KWR-2F BWROTP 0f BWOTP 1f */
+}
+
+
+Display4Colors::Display4Colors(std::shared_ptr<Connector> con)
+    : Display(std::move(con)) {}
+
+bool Display4Colors::show(Image& image) const
+{
+    std::vector<uint8_t> buf10(DISPLAY_BUF_SIZE);
+    std::vector<uint8_t> buf13(DISPLAY_BUF_SIZE);
+    bool status;
+    int height;
+    int width;
+
+    image.getSize(width, height);
+
+    if (height != DISPLAY_HEIGHT || width != DISPLAY_WIDTH)
+    {
+        std::cout << "display: resize image: " << width << "x" << height
+            << " > " << DISPLAY_WIDTH << "x" << DISPLAY_HEIGHT << std::endl;
+
+        status = image.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        if (!status)
+            return false;
+    }
+
+    status = image.toGreyscale();
+    if (!status)
+        return false;
+
+    status = image.compress4Colors(buf10.data(), buf13.data());
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_DATA_START_TRANSMISSION_1);
+    if (!status)
+        return false;
+    status = sendData(buf10);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_DATA_START_TRANSMISSION_2);
+    if (!status)
+        return false;
+    status = sendData(buf13);
+    if (!status)
+        return false;
+
+    /* ? */
+    status = sendCommand(CMD_DISPLAY_REFRESH);
+    if (!status)
+        return false;
     delay(10);
-    EPD_4IN2_TurnOnDisplay();
+
+    status = turnOn();
+    if (!status)
+        return false;
+
+    return true;
 }
 
-void EPD_4IN2_Sleep(void)
+bool Display4Colors::setLut() const
 {
-    EPD_4IN2_SendCommand(0x50); // DEEP_SLEEP
-    EPD_4IN2_SendData(0XF7);
+    bool status;
 
-    EPD_4IN2_SendCommand(0x02); // POWER_OFF
-    EPD_4IN2_ReadBusy();
+    status = sendCommand(CMD_VCOM_LUT); /* vcom */
+    if (!status)
+        return false;
+    status = sendData(lut4.vcom, sizeof lut4.vcom);
+    if (!status)
+        return false;
 
-    EPD_4IN2_SendCommand(0x07); // DEEP_SLEEP
-    EPD_4IN2_SendData(0XA5);
+    status = sendCommand(CMD_W2W_LUT); /* red not use */
+    if (!status)
+        return false;
+    status = sendData(lut4.ww, sizeof lut4.ww);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_B2W_LUT); /* bw r */
+    if (!status)
+        return false;
+    status = sendData(lut4.bw, sizeof lut4.bw);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_W2B_LUT); /* wb w */
+    if (!status)
+        return false;
+    status = sendData(lut4.wb, sizeof lut4.wb);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_B2B_LUT); /* bb b */
+    if (!status)
+        return false;
+    status = sendData(lut4.bb, sizeof lut4.bb);
+    if (!status)
+        return false;
+
+    status = sendCommand(CMD_UNKNOWN_LUT); /* vcom? */
+    if (!status)
+        return false;
+    status = sendData(lut4.ww, sizeof lut4.ww);
+    if (!status)
+        return false;
+
+    return true;
+}
+
+std::vector<uint8_t> Display4Colors::getSettingPower() const
+{
+    return {0x03, 0x00, 0x2B, 0x2B, 0x13};
+}
+
+std::vector<uint8_t> Display4Colors::getSettingPanel() const
+{
+    return {0x3F}; /* KW-3f KWR-2F BWROTP 0f BWOTP 1f */
 }
